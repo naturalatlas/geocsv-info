@@ -1,0 +1,4 @@
+id|name|wkt
+1|point|POINT(25  25)
+2|line|LINESTRING (30   10, 10  30,  40  40)
+3|polygon|POLYGON ((35 10,   45  45, 15 40,   10 20, 35 -50),(20 30, 35 35, 30 20, 20 55))

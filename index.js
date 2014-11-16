@@ -1,7 +1,8 @@
 var fs = require('fs');
 var csv = require('csv-parser');
 var byline = require('byline');
-var through2 = require('through2')
+var through2 = require('through2');
+var coordinateParsers = require('./geometry_parsers.js');
 
 module.exports = function(filename, options, callback){
 	if(arguments.length == 2){
@@ -11,6 +12,7 @@ module.exports = function(filename, options, callback){
 
 	options = options || {};
 
+	var warning  = null;
 	var has_json = false;
 	var first    = true;
 	var exited   = false;
@@ -26,7 +28,7 @@ module.exports = function(filename, options, callback){
 	var done = function(err){
 		if(!exited){
 			exited = true;
-			callback(err, err ? null : info);
+			callback(err || warning || null, err ? null : info);
 		}
 	}
 
@@ -41,14 +43,12 @@ module.exports = function(filename, options, callback){
 			//Detect separator
 			info.separator = options.separator || module.exports.detectSeparator(line);
 			if(!info.separator){
-				return callback("Cant determine CSV separator");
+				return callback("Can't determine CSV separator");
 			}
 			csvparser.separator = new Buffer(info.separator)[0];
 
 			//Detect fields
-			info.headers = line.split(info.separator).map(function(str){
-				return str.trim();
-			});
+			info.headers = line.split(info.separator);
 
 			//Detect geometry field
 			info.geometry_field = module.exports.detectGeometryField(info.headers);
@@ -58,8 +58,15 @@ module.exports = function(filename, options, callback){
 			has_json  = info.geometry_field.encoding === 'GeoJSON';
 			getExtent = module.exports.getExtentParser(info.geometry_field);
 
-		} else if(has_json) {
-			line = module.exports.fixJSONQuoting(line);
+		} else {
+			if(has_json) {
+				try {
+					line = module.exports.fixJSONQuoting(line);
+				} catch(err) {
+					return callback("Unable to parse JSON geometry in CSV");
+				}
+			}
+
 		}
 
 		this.push(line+'\n');
@@ -74,11 +81,20 @@ module.exports = function(filename, options, callback){
 	stream.on('data', function(row_obj){
 		info.count++;
 
-		var extent = getExtent(row_obj);
-		minX = Math.min(minX, extent.minX);
-		minY = Math.min(minY, extent.minY);
-		maxX = Math.max(maxX, extent.maxX);
-		maxY = Math.max(maxY, extent.maxY);
+		var extent; 
+		try {
+			extent = getExtent(row_obj);
+		} catch(err) {
+			warning = "Invalid geometry at feature "+(info.count-1);
+			extent  = null;
+		}
+
+		if(extent){
+			minX = Math.min(minX, extent.minX);
+			minY = Math.min(minY, extent.minY);
+			maxX = Math.max(maxX, extent.maxX);
+			maxY = Math.max(maxY, extent.maxY);
+		}
 	});
 	stream.on('error', done);
 	stream.on('end', function(){
@@ -93,23 +109,21 @@ module.exports = function(filename, options, callback){
 }
 
 module.exports.getExtentParser = function(geometry_field){
-	if(geometry_field.encoding === 'WKT'){
-		var field_wkt = geometry_field.name;
-		return function(row){
-			return module.exports.getWKTExtent(row[field_wkt]);
-		}
-	} else if (geometry_field.encoding === 'GeoJSON') {
-		var field_json = geometry_field.name;
-		return function(row){
-			return module.exports.getJSONExtent(row[field_json]);
-		}
-	} else {
+	if(geometry_field.encoding === 'PointFromColumns') {
 		var field_x = geometry_field.name.x;
 		var field_y = geometry_field.name.y;
 		return function(row){
 			var x = parseFloat(row[field_x]);
 			var y = parseFloat(row[field_y]);
-			return [x, y, x, y];
+			return {minX: x, minY: y, maxX: x, maxY: y};
+		}
+	} else {
+		var parseCoordinates = coordinateParsers[geometry_field.encoding];
+		var field_geom = geometry_field.name;
+		return function(row){
+			var coordinates;
+			coordinates = parseCoordinates(row[field_geom])
+			return getArrayExtent(coordinates);
 		}
 	}
 }
@@ -188,42 +202,22 @@ module.exports.detectSeparator = function(csv_line) {
 }
 
 module.exports.fixJSONQuoting = function(csv_line) {
-	// TODO: adapt from https://github.com/mapnik/mapnik/blob/14cf32d9c075cf87c228ed74423bb27bfe8ee73e/plugins/input/csv/csv_utils.hpp
-	// maybe unnecessary
-	return csv_line;
+	//normalizes geometry quoting to 'filebakery style' which is supported by csv-parser
+
+	var chunks = csv_line.match(/(.*)["']{(.*)}['"](.*)/);
+
+	if(chunks.length > 2){
+		chunks[2] = '"{'+chunks[2].replace(/\\?"+/g,'""')+'}"';
+		return (chunks[1]||'')+chunks[2]+(chunks[3]||'');
+	} else {
+		return csv_line;
+	}
 }
 
-
-module.exports.getJSONExtent=function(str){
-	// example inputs: 
-	// "{\"type\":\"Point\",\"coordinates\":[30.0,10.0]}" // escaped "
-	// '{"type":"Point","coordinates":[30.0,10.0]}' // single quotes no need for escaping "
-	// "{""type"":""Point"",""coordinates"":[30.0,10.0]}" // filebakery.com style ""
-
-	//Assumption: coordinate array will be the only array in a JSON object
-	//1. Strip away all characters but array text
-	//2. Remove any brackets/whitespace, and remove repeated commas (may be unnecessary if no empty sub arrays)
-	//3. Parse JSON
-	str = str.substring(str.indexOf('['), str.lastIndexOf(']')); 
-	str = str.replace(/[\[\]\s]/g, '').replace(/\,{2,}/g, ','); 
-
-	return getArrayExtent(JSON.parse('['+str+']'));
-}
-
-module.exports.getWKTExtent=function(str){
-	//TODO: optimize
-	str = str.substring(str.indexOf('('), str.lastIndexOf(')'));
-	str = str.replace(/[\(\)]/g, '')
-	str = str.replace(/\ {2,}/g, ' ').replace(/ /g, ',').replace(/\,{2,}/g, ','); 
-
-	console.log(str);
-
-	return getArrayExtent(JSON.parse('['+str+']'));
-}
-
-function getArrayExtent(arr) {
+function getArrayExtent(coords) {
+	var dim = coords.dim;
+	var arr = coords.arr;
 	var len = arr.length;
-	var dim = len % 3 == 0 ? 3 : 2;
 
 	var minX = Number.POSITIVE_INFINITY;
 	var minY = Number.POSITIVE_INFINITY;

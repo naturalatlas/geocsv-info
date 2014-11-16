@@ -1,0 +1,4 @@
+id|name|wkt
+1|point|POINT(10 25 999)
+2|point|POINT(10 25 -999)
+3|line|LINESTRING (30 15 999, 10 30 -999,  40  45 999)

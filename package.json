@@ -8,9 +8,12 @@
     "csv-parser": "^1.4.6",
     "through2": "^0.6.3"
   },
-  "devDependencies": {},
+  "devDependencies": {
+    "mocha": "~1.x",
+    "chai": "~1.9.1"
+  },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "mocha test"
   },
   "repository": {
     "type": "git",
