@@ -1,0 +1,32 @@
+{
+  "name": "geocsv-info",
+  "version": "0.0.1",
+  "description": "node.js utility for finding out more information about a csv file with geometry fields",
+  "main": "index.js",
+  "dependencies": {
+    "byline": "^4.1.1",
+    "csv-parser": "^1.4.6",
+    "through2": "^0.6.3"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/naturalatlas/geocsv-info.git"
+  },
+  "keywords": [
+    "geocsv",
+    "csv",
+    "gis",
+    "geometry"
+  ],
+  "author": "Brandon Reavis <brandon@brandonreavis.com>",
+  "license":  "Apache License, v2.0",
+  "bugs": {
+    "url": "https://github.com/naturalatlas/geocsv-info/issues"
+  },
+  "homepage": "https://github.com/naturalatlas/geocsv-info"
+}
+
