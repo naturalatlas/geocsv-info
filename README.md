@@ -31,3 +31,10 @@ info = {
 - `'WKT'`
 - `'GeoJSON'`
 - `'PointFromColumns'` *(latitude/longitude)*
+
+## Options
+
+- `'separator'` : *char*
+	+ *use specified character as separator instead of autodetecting it*
+- `'estimate'` : *int*
+	+ *max # of features to compute extent from*

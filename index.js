@@ -12,99 +12,119 @@ module.exports = function(filename, options, callback){
 
 	options = options || {};
 
-	var warning  = null;
-	var has_json = false;
-	var first    = true;
-	var exited   = false;
-	var minX = Number.POSITIVE_INFINITY;
-	var minY = Number.POSITIVE_INFINITY;
-	var maxX = Number.NEGATIVE_INFINITY;
-	var maxY = Number.NEGATIVE_INFINITY;
-	var getExtent;
-	var info = {
-		count: 0
-	};
+	fs.stat(filename, function(err, stats) {
+		if(err) return callback(err);
 
-	var done = function(err){
-		if(!exited){
-			exited = true;
-			callback(err || warning || null, err ? null : info);
+		var filesize = stats.size;
+		var estimate = options.estimate; 
+		var row_estimate = 0;
+		var rows_to_skip = 0;
+		var warning  = null;
+		var has_json = false;
+		var first    = true;
+		var exited   = false;
+		var minX = Number.POSITIVE_INFINITY;
+		var minY = Number.POSITIVE_INFINITY;
+		var maxX = Number.NEGATIVE_INFINITY;
+		var maxY = Number.NEGATIVE_INFINITY;
+		var getExtent;
+		var info = {
+			count: 0,
+			tested: 0,
+			filesize: filesize
+		};
+
+		var done = function(err){
+			if(!exited){
+				exited = true;
+				callback(err || warning || null, err ? null : info);
+			}
 		}
-	}
 
-	var filestream   = fs.createReadStream(filename, { encoding: 'utf8' });
-	var csvparser    = csv();
-	var geocsvparser = through2(function(line, enc, callback){
-		line = line.toString();
+		var filestream   = fs.createReadStream(filename, { encoding: 'utf8' });
+		var csvparser    = csv();
+		var geocsvparser = through2(function(line, enc, callback){
+			line = line.toString();
 
-		if(first){
-			first = false; 
-			
-			//Detect separator
-			info.separator = options.separator || module.exports.detectSeparator(line);
-			if(!info.separator){
-				return callback("Can't determine CSV separator");
-			}
-			csvparser.separator = new Buffer(info.separator)[0];
+			if(first){
+				first = false; 
+				
+				//Detect separator
+				info.separator = options.separator || module.exports.detectSeparator(line);
+				if(!info.separator){
+					return callback("Can't determine CSV separator");
+				}
+				csvparser.separator = new Buffer(info.separator)[0];
 
-			//Detect fields
-			info.headers = line.split(info.separator);
+				//Detect fields
+				info.headers = line.split(info.separator);
 
-			//Detect geometry field
-			info.geometry_field = module.exports.detectGeometryField(info.headers);
-			if(!info.geometry_field){
-				return callback("Unable to determine geometry field in CSV");
-			}
-			has_json  = info.geometry_field.encoding === 'GeoJSON';
-			getExtent = module.exports.getExtentParser(info.geometry_field);
+				//Detect geometry field
+				info.geometry_field = module.exports.detectGeometryField(info.headers);
+				if(!info.geometry_field){
+					return callback("Unable to determine geometry field in CSV");
+				}
+				has_json  = info.geometry_field.encoding === 'GeoJSON';
+				getExtent = module.exports.getExtentParser(info.geometry_field);
+			} else {
+				info.count++;
 
-		} else {
-			if(has_json) {
-				try {
-					line = module.exports.fixJSONQuoting(line);
-				} catch(err) {
-					return callback("Unable to parse JSON geometry in CSV");
+				if(estimate){
+				 	if(rows_to_skip-- < 1){
+						row_estimate += filesize/(Math.max(line.length,10));
+						if(info.count > 1) row_estimate /= 2; 
+						rows_to_skip = Math.floor(row_estimate / estimate);
+					} else {
+						return callback();
+					}
+				}
+
+				if(has_json) {
+					try {
+						line = module.exports.fixJSONQuoting(line);
+					} catch(err) {
+						return callback("Unable to parse JSON geometry in CSV");
+					}
 				}
 			}
 
-		}
+			this.push(line+'\n');
+			callback();
+		});
 
-		this.push(line+'\n');
-		callback();
-	});
+		filestream.on('error', done);
+		geocsvparser.on('error', done);
 
-	filestream.on('error', done);
-	geocsvparser.on('error', done);
+		var stream = byline(filestream).pipe(geocsvparser).pipe(csvparser);
+		
+		stream.on('data', function(row_obj){
+			info.tested++;
+			var extent; 
+			try {
+				extent = getExtent(row_obj);
+			} catch(err) {
+				warning = "Invalid geometry at feature "+(info.count-1);
+				extent  = null;
+			}
 
-	var stream = byline(filestream).pipe(geocsvparser).pipe(csvparser);
-	
-	stream.on('data', function(row_obj){
-		info.count++;
+			if(extent){
+				minX = Math.min(minX, extent.minX);
+				minY = Math.min(minY, extent.minY);
+				maxX = Math.max(maxX, extent.maxX);
+				maxY = Math.max(maxY, extent.maxY);
+			}
+		});
+		stream.on('error', done);
+		stream.on('end', function(){
+			info.extent = {
+				minX: minX,
+				minY: minY,
+				maxX: maxX,
+				maxY: maxY
+			}
+			done();
+		});
 
-		var extent; 
-		try {
-			extent = getExtent(row_obj);
-		} catch(err) {
-			warning = "Invalid geometry at feature "+(info.count-1);
-			extent  = null;
-		}
-
-		if(extent){
-			minX = Math.min(minX, extent.minX);
-			minY = Math.min(minY, extent.minY);
-			maxX = Math.max(maxX, extent.maxX);
-			maxY = Math.max(maxY, extent.maxY);
-		}
-	});
-	stream.on('error', done);
-	stream.on('end', function(){
-		info.extent = {
-			minX: minX,
-			minY: minY,
-			maxX: maxX,
-			maxY: maxY
-		}
-		done();
 	});
 }
 
