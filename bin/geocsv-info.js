@@ -1,4 +1,5 @@
-var geocsvinfo = require('./index.js');
+#!/usr/bin/env node
+var geocsvinfo = require('../index.js');
 
 var filename = process.argv[2];
 if (!filename) {
@@ -6,8 +7,8 @@ if (!filename) {
 	process.exit(1);
 }
 
-geocsvinfo(filename, function(err, metadata){
-	if(err){
+geocsvinfo(filename, function(err, metadata) {
+	if (err) {
 		console.log(err);
 		process.exit(1);
 	}

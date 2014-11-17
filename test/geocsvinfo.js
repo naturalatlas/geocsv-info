@@ -4,7 +4,7 @@ var path = require('path');
 
 var f = function(filename){
 	return path.resolve(__dirname,'data',filename);
-}
+};
 
 describe('geocsvinfo()', function(){
 	it('should return error if file not found', function(done){
@@ -180,7 +180,7 @@ describe('geocsvinfo()', function(){
 				});
 				done();
 			});
-		});		
+		});
 		it('should work with lat/lon columns', function(done){
 			geocsvinfo(f('./pointfromcolumns/pointfromcolumns_latlon.csv'), function(err, info){
 				assert.isNull(err);

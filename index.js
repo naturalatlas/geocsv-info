@@ -4,8 +4,8 @@ var byline = require('byline');
 var through2 = require('through2');
 var coordinateParsers = require('./geometry_parsers.js');
 
-module.exports = function(filename, options, callback){
-	if(arguments.length == 2){
+module.exports = function(filename, options, callback) {
+	if (arguments.length === 2) {
 		callback = options;
 		options = null;
 	}
@@ -16,7 +16,7 @@ module.exports = function(filename, options, callback){
 		if(err) return callback(err);
 
 		var filesize = stats.size;
-		var estimate = options.estimate; 
+		var estimate = options.estimate;
 		var row_estimate = 0;
 		var rows_to_skip = 0;
 		var warning  = null;
@@ -47,8 +47,8 @@ module.exports = function(filename, options, callback){
 			line = line.toString();
 
 			if(first){
-				first = false; 
-				
+				first = false;
+
 				//Detect separator
 				info.separator = options.separator || module.exports.detectSeparator(line);
 				if(!info.separator){
@@ -72,7 +72,7 @@ module.exports = function(filename, options, callback){
 				if(estimate){
 				 	if(rows_to_skip-- < 1){
 						row_estimate += filesize/(Math.max(line.length,10));
-						if(info.count > 1) row_estimate /= 2; 
+						if(info.count > 1) row_estimate /= 2;
 						rows_to_skip = Math.floor(row_estimate / estimate);
 					} else {
 						return callback();
@@ -96,7 +96,7 @@ module.exports = function(filename, options, callback){
 		geocsvparser.on('error', done);
 
 		var stream = byline(filestream).pipe(geocsvparser).pipe(csvparser);
-		
+
 		stream.on('data', function(row_obj){
 			info.tested++;
 
@@ -104,11 +104,11 @@ module.exports = function(filename, options, callback){
 				info.fields = {};
 				info.headers.forEach(function(fieldname){
 					var is_number = /^(\-|\+)?([0-9]+(\.[0-9]+)?|Infinity)$/.test(row_obj[fieldname]);
-					info.fields[fieldname] = is_number ? 'Number' : 'String'; 
+					info.fields[fieldname] = is_number ? 'Number' : 'String';
 				});
 			}
 
-			var extent; 
+			var extent;
 			try {
 				extent = getExtent(row_obj);
 			} catch(err) {
@@ -179,7 +179,7 @@ module.exports.detectGeometryField = function(fieldnames){
 			break;
 		}
 		if(name == 'x'
-			|| name == 'lon' 
+			|| name == 'lon'
 			|| name == 'lng'
 			|| name == 'long'
 			|| name.indexOf('longitude') > -1)
@@ -195,7 +195,7 @@ module.exports.detectGeometryField = function(fieldnames){
 			continue;
 		}
 		if(name == 'y'
-			|| name == 'lat' 
+			|| name == 'lat'
 			|| name.indexOf('latitude') > -1)
 		{
 
@@ -219,8 +219,8 @@ module.exports.detectSeparator = function(csv_line) {
 	var counts = separators.map(function(separator){
 		return csv_line.split(separator).length-1;
 	});
-	
-	var best = null, max = 0; 
+
+	var best = null, max = 0;
 	for(i=0; i<4; i++){
 		if(counts[i] > max){
 			max = counts[i];
