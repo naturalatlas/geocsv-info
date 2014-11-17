@@ -182,7 +182,7 @@ module.exports.detectGeometryField = function(fieldnames){
 				encoding: "PointFromColumns"
 			}
 			result.id.x   = i;
-			result.name.x = name;
+			result.name.x = fieldnames[i];
 			continue;
 		}
 		if(name == 'y'
@@ -196,7 +196,7 @@ module.exports.detectGeometryField = function(fieldnames){
 				encoding: "PointFromColumns"
 			}
 			result.id.y   = i;
-			result.name.y = name;
+			result.name.y = fieldnames[i];
 			continue;
 		}
 	}
