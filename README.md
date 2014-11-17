@@ -17,7 +17,12 @@ info = {
 	count: 3,
 	separator: '|',
 	headers: [ 'id', 'name', 'wkt' ],
-	geometry_field: { 
+	fields: {
+		id: 'Number',
+		name: 'String',
+		wkt: 'String'
+	},
+	geometryField: { 
 		id: 2, 
 		name: 'wkt', 
 		encoding: 'WKT' 
@@ -38,3 +43,29 @@ info = {
 	+ *use specified character as separator instead of autodetecting it*
 - `'estimate'` : *int*
 	+ *max # of features to compute extent from*
+
+## Output
+
+- `count`: *int*
+	+ total # of features
+- `filesize`: *int*
+	+ total filesize in bytes
+- `separator`: *char*
+- `headers`: *string[]*
+	+ list of all field names
+- `fields`: *object*
+	+ an object mapping each fieldname to its basic type (`"Number"` or `"String"`). includes geometry fields interpreted as if it was a normal csv
+- `geometryField`: *object*
+	+ `encoding`: `"WKT"`, `"GeoJSON"`, or `"PointFromColumns"`
+	+ `name`: *string | object* 
+		+ string for WKT, GeoJSON encoding
+		+ object with `x`, `y` properties for geometry with PointFromColumns encoding
+	+ `id`: *int | object* 
+		+ field index
+		+ int for WKT, GeoJSON encoding
+		+ object with `x`, `y` properties for geometry with PointFromColumns encoding
+- `extent`: *object*
+	+ `minX` : *number*
+	+ `minY` : *number*
+	+ `maxX` : *number*
+	+ `maxY` : *number* 

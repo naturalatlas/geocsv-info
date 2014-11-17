@@ -60,12 +60,12 @@ module.exports = function(filename, options, callback){
 				info.headers = line.split(info.separator);
 
 				//Detect geometry field
-				info.geometry_field = module.exports.detectGeometryField(info.headers);
-				if(!info.geometry_field){
+				info.geometryField = module.exports.detectGeometryField(info.headers);
+				if(!info.geometryField){
 					return callback("Unable to determine geometry field in CSV");
 				}
-				has_json  = info.geometry_field.encoding === 'GeoJSON';
-				getExtent = module.exports.getExtentParser(info.geometry_field);
+				has_json  = info.geometryField.encoding === 'GeoJSON';
+				getExtent = module.exports.getExtentParser(info.geometryField);
 			} else {
 				info.count++;
 
@@ -99,6 +99,15 @@ module.exports = function(filename, options, callback){
 		
 		stream.on('data', function(row_obj){
 			info.tested++;
+
+			if(!info.fields){
+				info.fields = {};
+				info.headers.forEach(function(fieldname){
+					var is_number = /^(\-|\+)?([0-9]+(\.[0-9]+)?|Infinity)$/.test(row_obj[fieldname]);
+					info.fields[fieldname] = is_number ? 'Number' : 'String'; 
+				});
+			}
+
 			var extent; 
 			try {
 				extent = getExtent(row_obj);
@@ -128,18 +137,18 @@ module.exports = function(filename, options, callback){
 	});
 }
 
-module.exports.getExtentParser = function(geometry_field){
-	if(geometry_field.encoding === 'PointFromColumns') {
-		var field_x = geometry_field.name.x;
-		var field_y = geometry_field.name.y;
+module.exports.getExtentParser = function(geometryField){
+	if(geometryField.encoding === 'PointFromColumns') {
+		var field_x = geometryField.name.x;
+		var field_y = geometryField.name.y;
 		return function(row){
 			var x = parseFloat(row[field_x]);
 			var y = parseFloat(row[field_y]);
 			return {minX: x, minY: y, maxX: x, maxY: y};
 		}
 	} else {
-		var parseCoordinates = coordinateParsers[geometry_field.encoding];
-		var field_geom = geometry_field.name;
+		var parseCoordinates = coordinateParsers[geometryField.encoding];
+		var field_geom = geometryField.name;
 		return function(row){
 			var coordinates;
 			coordinates = parseCoordinates(row[field_geom])
